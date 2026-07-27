@@ -104,7 +104,13 @@ class OnnxRunner:
             raise ModelContractError(f"expected one model input, got {len(inputs)}")
         self.input = inputs[0]
         shape = tuple(self.input.shape)
-        if len(shape) != 4 or shape[1] not in (3, "3") or shape[2] not in (640, "640") or shape[3] not in (640, "640"):
+        if (
+            len(shape) != 4
+            or shape[0] not in (1, "1")
+            or shape[1] not in (3, "3")
+            or shape[2] not in (640, "640")
+            or shape[3] not in (640, "640")
+        ):
             raise ModelContractError(f"expected input [1,3,640,640], got name={self.input.name!r} shape={shape}")
         self.input_name = self.input.name
         output_names = [output.name for output in self.session.get_outputs()]
@@ -137,4 +143,3 @@ class OnnxRunner:
         if self.output_index >= len(outputs):
             raise ModelContractError("selected output index is not present in runtime result")
         return parse_output_tensor(outputs[self.output_index])
-
