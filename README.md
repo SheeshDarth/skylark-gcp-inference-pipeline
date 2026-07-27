@@ -16,6 +16,53 @@ run, but they are not a substitute for the full manifests. Keep all supplied
 rasters, annotations, the ONNX model, manifests, schemas, and checksums in a
 private assignment-assets directory outside the public repository.
 
+## Current artifact scope and verification
+
+The separate private `predictions.json` upload was generated for the two selected
+scenes `dev_004` and `test_002`. It contains 51 and 41 detections respectively,
+passes the supplied closed-world predictions schema, and uses no fields beyond
+`schema_version`, `scenes`, `scene_id`, `detections`, `pixel_x`, `pixel_y`,
+`longitude`, `latitude`, and `confidence`. The selected-scene output must not be
+presented as a full six-scene result unless the assignment owner confirms that
+this two-scene scope is authorized.
+
+The verification record for this artifact is:
+
+- `python -m pytest -q`: 10 tests passed;
+- CPU inference and the offline Docker run both completed for the two selected
+  scenes;
+- the Docker result passed the supplied schema and coordinate bounds checks;
+- the ZIP was extracted cleanly with the required files at its root and no
+  rasters, annotations, model weights, caches, or nested archive.
+
+To validate a generated output with the organizer's schema, use the supplied
+schema file privately:
+
+```bash
+python -c "import json; from jsonschema import validate; validate(json.load(open('predictions.json')), json.load(open('predictions.schema.json'))); print('schema valid')"
+```
+
+The selected-scene Docker invocation is the same offline contract used for
+verification, with a private manifest mounted at `/input/manifest.json`:
+
+```bash
+docker run --rm \
+  --platform linux/amd64 \
+  --network none \
+  --read-only \
+  --tmpfs /tmp:rw,size=2g \
+  -v "$ASSET_ROOT:/input:ro" \
+  -v "$MODEL_ROOT:/model:ro" \
+  -v "$PWD/output:/output" \
+  gcp-submission \
+  --manifest /input/manifest.json \
+  --model /model/gcp_pose.onnx \
+  --output /output/predictions.json
+```
+
+Do not add extra metadata to `predictions.json`: the supplied schema sets
+`additionalProperties` to false.
+
 ## Runtime contract
 
 The evaluator invokes:
@@ -112,8 +159,10 @@ docker run --rm \
   --output /output/predictions.json
 ```
 
-The final submission ZIP must have `Dockerfile`, `README.md`,
-`predictions.json`, and `solution/` immediately at its root. Do not include
+The final submission ZIP must have `Dockerfile`, `README.md`, and `solution/`
+immediately at its root. `requirements.txt` and other source files may also be
+included at that root. Upload `predictions.json` separately in the public-test
+predictions field; do not place it inside the submission ZIP. Do not include
 rasters, annotations, the ONNX model, virtual environments, `.git`, caches,
 tile artifacts, or another nested ZIP.
 
