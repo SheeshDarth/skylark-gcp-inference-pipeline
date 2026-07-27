@@ -1,0 +1,31 @@
+# Assignment inputs and private artifacts
+data/
+model/
+input/
+output/
+*.tif
+*.tiff
+*.cog
+*.onnx
+annotations.json
+checksums.sha256
+predictions.json
+
+# Python and tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+
+# Local analysis and generated artifacts
+graphify-out/
+.graphify_*.json
+.graphify_*.txt
+work/
+*.log
+*.zip
+
