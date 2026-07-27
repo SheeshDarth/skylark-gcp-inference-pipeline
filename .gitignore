@@ -22,10 +22,10 @@ venv/
 .ruff_cache/
 
 # Local analysis and generated artifacts
+outputs/
 graphify-out/
 .graphify_*.json
 .graphify_*.txt
 work/
 *.log
 *.zip
-

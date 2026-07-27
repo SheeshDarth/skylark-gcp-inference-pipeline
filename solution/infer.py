@@ -15,6 +15,7 @@ from .geo import pixel_to_wgs84
 from .manifest import ManifestError, load_manifest
 from .model import ModelContractError, OnnxRunner
 from .postprocess import RasterDetection, deduplicate_detections, nms_candidates
+from .preprocess import LetterboxMeta, preprocess_tile
 from .raster import describe_dataset, iter_tiles
 
 
@@ -34,21 +35,32 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _map_candidate(candidate, tile) -> RasterDetection | None:
-    if not (0.0 <= candidate.keypoint_x < tile.valid_width and 0.0 <= candidate.keypoint_y < tile.valid_height):
+def _map_candidate(candidate, tile, letterbox: LetterboxMeta) -> RasterDetection | None:
+    """Undo model letterboxing, then map a candidate into raster pixels."""
+
+    if letterbox.scale <= 0.0:
+        raise ValueError("letterbox scale must be positive")
+    keypoint_x = (candidate.keypoint_x - letterbox.pad_x) / letterbox.scale
+    keypoint_y = (candidate.keypoint_y - letterbox.pad_y) / letterbox.scale
+    center_x = (candidate.center_x - letterbox.pad_x) / letterbox.scale
+    center_y = (candidate.center_y - letterbox.pad_y) / letterbox.scale
+    width = candidate.width / letterbox.scale
+    height = candidate.height / letterbox.scale
+
+    if not (0.0 <= keypoint_x < tile.valid_width and 0.0 <= keypoint_y < tile.valid_height):
         return None
-    mask_x = min(tile.tile_size - 1, max(0, int(math.floor(candidate.keypoint_x))))
-    mask_y = min(tile.tile_size - 1, max(0, int(math.floor(candidate.keypoint_y))))
+    mask_x = min(tile.valid_width - 1, max(0, int(math.floor(keypoint_x))))
+    mask_y = min(tile.valid_height - 1, max(0, int(math.floor(keypoint_y))))
     if not bool(tile.valid_mask[mask_y, mask_x]):
         return None
     return RasterDetection(
-        pixel_x=float(tile.col_off + candidate.keypoint_x),
-        pixel_y=float(tile.row_off + candidate.keypoint_y),
+        pixel_x=float(tile.col_off + keypoint_x),
+        pixel_y=float(tile.row_off + keypoint_y),
         confidence=float(candidate.confidence),
-        box_x=float(tile.col_off + candidate.center_x - candidate.width / 2.0),
-        box_y=float(tile.row_off + candidate.center_y - candidate.height / 2.0),
-        box_width=float(candidate.width),
-        box_height=float(candidate.height),
+        box_x=float(tile.col_off + center_x - width / 2.0),
+        box_y=float(tile.row_off + center_y - height / 2.0),
+        box_width=float(width),
+        box_height=float(height),
     )
 
 
@@ -92,12 +104,12 @@ def run_inference(args: argparse.Namespace) -> dict[str, Any]:
             for tile in iter_tiles(dataset, tile_size=640, overlap=args.overlap):
                 if not bool(tile.valid_mask.any()):
                     continue
-                tensor = tile.rgb[np.newaxis, ...].astype(np.float32, copy=False)
-                candidates = runner.predict(tensor)
+                prepared = preprocess_tile(tile)
+                candidates = runner.predict(prepared.tensor)
                 candidates = [item for item in candidates if item.confidence >= args.confidence_threshold]
                 candidates = nms_candidates(candidates, args.nms_iou)
                 for candidate in candidates:
-                    mapped = _map_candidate(candidate, tile)
+                    mapped = _map_candidate(candidate, tile, prepared.letterbox)
                     if mapped is not None:
                         detections.append(mapped)
 

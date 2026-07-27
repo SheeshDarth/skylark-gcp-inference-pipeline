@@ -5,15 +5,16 @@ Skylark GCP localization assignment. It is designed around the supplied ONNX
 model and does not contain assignment rasters, annotations, model weights, or
 generated test predictions.
 
-## Minimal assignment assets
+## Assignment assets
 
-The assignment instructions identify `dev_004.tif` and `test_002.tif` as the
-required raster assets for the minimal development/test run. The other raster
-files in the full package are not required unless a downloaded manifest
-explicitly references them. The manifests, `annotations.json` for development,
-`model_spec.json`, `gcp_pose.onnx`, both schemas, and `checksums.sha256` are
-still required support files. The manifest remains the source of truth for
-scene coverage and relative raster paths.
+The manifests are the source of truth for scene coverage and relative raster
+paths. In the supplied package, the development manifest references
+`dev_001.tif` through `dev_004.tif`, and the test manifest references
+`test_001.tif` and `test_002.tif`; a complete manifest run therefore needs all
+six rasters. `dev_004.tif` and `test_002.tif` are useful for a smaller smoke
+run, but they are not a substitute for the full manifests. Keep all supplied
+rasters, annotations, the ONNX model, manifests, schemas, and checksums in a
+private assignment-assets directory outside the public repository.
 
 ## Runtime contract
 
@@ -42,14 +43,16 @@ containing every manifest scene exactly once.
    resolution, and block layout through raster metadata.
 2. Read 640x640 windows with configurable overlap. Right and bottom edge windows
    are padded while retaining their valid dimensions and mask.
-3. Convert the inspected source bands to RGB float32 in `[0, 1]` and run the
-   supplied ONNX model through the CPU execution provider.
+3. Convert the inspected source bands to RGB float32 in `[0, 1]`, apply the
+   published centered 640x640 bilinear letterbox with RGB padding `114`, and
+   run the supplied ONNX model through the CPU execution provider. The exact
+   scale and padding are retained for inverse coordinate mapping.
 4. Parse the published dense pose output: box `xywh`, three probability
    channels, and keypoint `xy`. The keypoint is the output location; marker
    classification is not emitted.
-5. Apply confidence filtering and within-window NMS, map keypoints back to full
-   raster pixel coordinates, and consolidate duplicates across overlapping
-   windows.
+5. Apply confidence filtering and within-window NMS, undo the letterbox, map
+   keypoints back to full raster pixel coordinates, and consolidate duplicates
+   across overlapping windows.
 6. Apply the raster affine transform and transform the source CRS to WGS84
    longitude/latitude.
 7. Validate finite confidence values, pixel bounds, scene coverage, and empty
