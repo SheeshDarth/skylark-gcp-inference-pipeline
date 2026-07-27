@@ -5,6 +5,16 @@ Skylark GCP localization assignment. It is designed around the supplied ONNX
 model and does not contain assignment rasters, annotations, model weights, or
 generated test predictions.
 
+## Minimal assignment assets
+
+The assignment instructions identify `dev_004.tif` and `test_002.tif` as the
+required raster assets for the minimal development/test run. The other raster
+files in the full package are not required unless a downloaded manifest
+explicitly references them. The manifests, `annotations.json` for development,
+`model_spec.json`, `gcp_pose.onnx`, both schemas, and `checksums.sha256` are
+still required support files. The manifest remains the source of truth for
+scene coverage and relative raster paths.
+
 ## Runtime contract
 
 The evaluator invokes:
@@ -110,4 +120,3 @@ This public repository is source-only. Synthetic tests and generic examples are
 safe to publish. Assignment rasters, annotations, ONNX files, derived crops,
 assignment-generated predictions, private manifests, checksums, and local logs
 must remain private and must never be uploaded.
-
