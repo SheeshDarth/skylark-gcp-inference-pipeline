@@ -46,7 +46,7 @@ def _require_rasterio():
 def describe_dataset(dataset) -> RasterInfo:
     crs = dataset.crs.to_string() if dataset.crs else None
     transform = dataset.transform
-    colorinterp = tuple(str(value) for value in dataset.colorinterp)
+    colorinterp = tuple(getattr(value, "name", str(value)).lower() for value in dataset.colorinterp)
     block_shapes = tuple(tuple(shape) for shape in dataset.block_shapes)
     return RasterInfo(
         width=int(dataset.width),
@@ -135,4 +135,3 @@ def read_tile(dataset, row_off: int, col_off: int, valid_height: int, valid_widt
 def iter_tiles(dataset, tile_size: int = 640, overlap: int = 128) -> Iterator[WindowTile]:
     for row, col, height, width in iter_window_specs(dataset.width, dataset.height, tile_size, overlap):
         yield read_tile(dataset, row, col, height, width, tile_size)
-
